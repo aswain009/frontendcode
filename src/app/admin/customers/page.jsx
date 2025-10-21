@@ -24,6 +24,7 @@ export default async function AdminCustomersPage() {
           <tr className="bg-gray-100">
             <th className="text-left p-2">ID</th>
             <th className="text-left p-2">Name</th>
+            <th className="text-left p-2">Contact Name</th>
             <th className="text-left p-2">Email</th>
             <th className="text-left p-2">Phone</th>
             <th className="text-left p-2">Actions</th>
@@ -32,8 +33,9 @@ export default async function AdminCustomersPage() {
         <tbody>
           {(customers || []).map(c => (
             <tr key={c.id} className="border-t">
-              <td className="p-2 font-mono">{c.id}</td>
-              <td className="p-2">{[c.firstName, c.lastName].filter(Boolean).join(' ') || c.name || '—'}</td>
+              <td className="p-2 font-mono">{c.customerNumber}</td>
+              <td className="p-2 font-mono">{c.customerName}</td>
+              <td className="p-2">{[c.contactFirstName, c.contactLastName].filter(Boolean).join(' ') || c.name || '—'}</td>
               <td className="p-2">{c.email || '—'}</td>
               <td className="p-2">{c.phone || '—'}</td>
               <td className="p-2">
