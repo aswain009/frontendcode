@@ -24,3 +24,21 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+/* Brand palette derived from Lugnuts logo */
+:root {
+  --brand-teal: #1f6d6a;    /* shield teal */
+  --brand-gold: #e4b343;    /* wrench/gold text */
+  --brand-orange: #c95a2a;  /* outline orange */
+  --brand-cream: #fff7e9;   /* paper background */
+
+  /* Apply brand to base colors */
+  --background: var(--brand-cream);
+  --foreground: #0f2e2d; /* deep teal text */
+}
+
+/* Convenience utility classes */
+.brand-gradient {
+  background: linear-gradient(135deg, var(--brand-teal), var(--brand-gold));
+}
