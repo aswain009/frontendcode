@@ -1,6 +1,6 @@
 # Lugnuts Automotive – Next.js Frontend
 
-A minimal storefront and admin UI that talks to your Java/Spring API at `http://localhost:8080/api/lugnuts`.
+A minimal storefront and admin UI that talks to the Java/Spring API at `http://localhost:8080/api/lugnuts`.
 
 This guide explains how to install and run the app locally on a Mac (Intel or Apple Silicon), including required tools, environment configuration, and common troubleshooting.
 
@@ -198,7 +198,3 @@ Keep your Spring API running and reachable at `NEXT_PUBLIC_API_BASE`.
   - `next.config.mjs`, `package.json` – project config
 
 ---
-
-## License
-
-Private/internal use. Replace or add a license as appropriate for your project.
