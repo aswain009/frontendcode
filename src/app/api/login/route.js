@@ -76,7 +76,10 @@ export async function POST(request) {
     }
 
     const token = await signSession(username);
-    const redirect = NextResponse.redirect(new URL('/admin', request.url), { status: 303 });
+    const host = request.headers.get('host');
+    const proto = request.headers.get('x-forwarded-proto') || 'https';
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `${proto}://${host}`;
+    const redirect = NextResponse.redirect(new URL('/admin', baseUrl), { status: 303 });
     redirect.cookies.set(AUTH_COOKIE, token, authCookieOptions());
     return redirect;
   } catch (err) {
