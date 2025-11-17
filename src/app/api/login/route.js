@@ -47,7 +47,7 @@ export async function POST(request) {
     }
 
     const base = process.env.SPRING_API_BASE;
-    const loginPath = process.env.SPRING_LOGIN_PATH || '/login'; // match your Spring mapping
+    const loginPath = process.env.SPRING_LOGIN_PATH || '/auth/login'; // match your Spring mapping
     if (!base) {
         return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
     }
