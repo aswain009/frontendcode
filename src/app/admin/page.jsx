@@ -3,8 +3,11 @@ import { cookies } from 'next/headers';
 import { AUTH_COOKIE, verifySession } from '@/lib/auth';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminPage() {
-    const token = cookies().get(AUTH_COOKIE)?.value;
+    const cookieStore = await cookies();
+    const token = cookieStore.get(AUTH_COOKIE)?.value;
     const session = token ? await verifySession(token) : null;
 
     if (!session) {
@@ -23,11 +26,9 @@ export default async function AdminPage() {
                                 type="text"
                                 autoComplete="username"
                                 required
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Enter username"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black"
                             />
                         </div>
-
                         <div>
                             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                                 Password
@@ -38,66 +39,20 @@ export default async function AdminPage() {
                                 type="password"
                                 autoComplete="current-password"
                                 required
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Enter password"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black"
                             />
                         </div>
-
-                        <p id="login-error" className="text-sm text-red-600 min-h-[1.25rem]" role="alert" />
-
                         <button
-                            type="submit"
-                            className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+                            formAction="/api/login"
+                            formMethod="POST"
+                            className="w-full rounded-md bg-black px-4 py-2 text-white hover:bg-gray-900"
                         >
                             Sign in
                         </button>
                     </form>
-
-                    {/* Inline script to handle login without needing a Client Component */}
-                    <script
-                        dangerouslySetInnerHTML={{
-                            __html: `
-              (function () {
-                const form = document.getElementById('admin-login-form');
-                if (!form) return;
-                form.addEventListener('submit', async function (e) {
-                  e.preventDefault();
-                  const btn = form.querySelector('button[type="submit"]');
-                  const err = document.getElementById('login-error');
-                  err.textContent = '';
-                  btn?.setAttribute('disabled', '');
-                  try {
-                    const fd = new FormData(form);
-                    const payload = {
-                      username: (fd.get('username') || '').toString(),
-                      password: (fd.get('password') || '').toString(),
-                    };
-                    const res = await fetch('/api/login', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(payload),
-                    });
-                    if (res.ok) {
-                      // Cookie is set by the API; reload back to /admin
-                      window.location.href = '/admin';
-                    } else {
-                      let msg = 'Login failed';
-                      try {
-                        const data = await res.json();
-                        if (data && typeof data.error === 'string') msg = data.error;
-                      } catch (_) {}
-                      err.textContent = msg;
-                    }
-                  } catch (e) {
-                    err.textContent = 'Network error. Please try again.';
-                  } finally {
-                    btn?.removeAttribute('disabled');
-                  }
-                });
-              })();
-            `,
-                        }}
-                    />
+                    <p className="mt-4 text-sm text-gray-500">
+                        <Link href="/" className="underline">Back to store</Link>
+                    </p>
                 </div>
             </div>
         );

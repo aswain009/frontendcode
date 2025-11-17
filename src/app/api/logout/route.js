@@ -1,33 +1,23 @@
-// Deletes local session cookie; optionally calls Spring logout
+// Deletes auth cookies and redirects to the home page
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { AUTH_COOKIE } from '@/lib/auth';
+import { AUTH_COOKIE, authCookieOptions } from '@/lib/auth';
 
-function resolveUrl(base, path) {
-    try {
-        return new URL(path, base).toString();
-    } catch {
-        return `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
-    }
+function clearCookie(res, name) {
+    const base = authCookieOptions();
+    // Expire immediately; ensure path matches original cookie
+    res.cookies.set(name, '', {
+        ...base,
+        maxAge: 0,
+        expires: new Date(0),
+    });
 }
 
-export async function POST() {
-    // Optional: tell Spring to invalidate its session if it maintains one
-    const base = process.env.SPRING_API_BASE;
-    const logoutPath = process.env.SPRING_LOGOUT_PATH || '/auth/logout';
-    if (base) {
-        try {
-            await fetch(resolveUrl(base, logoutPath), {
-                method: 'POST',
-                headers: {
-                    ...(process.env.SPRING_API_KEY ? { 'X-API-Key': process.env.SPRING_API_KEY } : {}),
-                },
-            });
-        } catch {
-            // ignore upstream errors; still clear the local cookie
-        }
-    }
-
-    cookies().delete(AUTH_COOKIE);
-    return NextResponse.json({ success: true });
+export function POST(request) {
+    const res = NextResponse.redirect(new URL('/', request.url), { status: 303 });
+    const names = new Set([AUTH_COOKIE, 'admin_session']);
+    names.forEach((n) => clearCookie(res, n));
+    return res;
 }
+
+// Optional: support GET /api/logout too
+export const GET = POST;
