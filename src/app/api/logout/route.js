@@ -13,7 +13,8 @@ function clearCookie(res, name) {
 }
 
 export function POST(request) {
-    const res = NextResponse.redirect(new URL('/', request.url), { status: 303 });
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `${proto}://${host}`;
+    const res = NextResponse.redirect(new URL('/', baseUrl), { status: 303 });
     const names = new Set([AUTH_COOKIE, 'admin_session']);
     names.forEach((n) => clearCookie(res, n));
     return res;
