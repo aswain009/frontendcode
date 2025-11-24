@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getCart, clearCart } from '@/lib/cart';
+//import { updateProduct, createOrder } from '@/lib/api';
 import { createOrder } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
@@ -26,6 +27,18 @@ export default function CheckoutPage() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    //Call updateProduct API to update inventory for each item in cart.
+    //Validate inventory before placing order.
+    //Provide feedback to user if inventory is insufficient.
+    //Maybe provide alternative items? Maybe not? Not sure on the lift for that.
+
+    //Call createOrder API to create the order.
+    //Provide feedback to user if order creation fails.
+    //If order creation fails for any reason, the cart should NOT be cleared and the user should be able to try again.
+    //If the order is successfully created, the cart should be cleared and the user should be redirected to the order confirmation page/Order Conformation deatials should be displayed to the user.
+
+    //Confirm order creation API data.
+
     if (cart.items.length === 0) {
       setStatus({ loading: false, error: 'Your cart is empty.' });
       return;
