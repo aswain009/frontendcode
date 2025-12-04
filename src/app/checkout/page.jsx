@@ -45,19 +45,48 @@ export default function CheckoutPage() {
     }
     setStatus({ loading: true, error: null });
     try {
+      const today = new Date().toISOString().slice(0, 10);
       const orderPayload = {
+        orderNumber: 0,
+        orderDate: today,
+        requiredDate: today,
+        shippedDate: today,
+        status: 'Submitted',
+        comments: '',
         customer: {
-          firstName: form.firstName,
-          lastName: form.lastName,
-          email: form.email,
-          phone: form.phone,
-          address: form.address,
+          customerNumber: 0,
+          customerName: `${form.firstName} ${form.lastName}`.trim(),
+          contactLastName: form.lastName,
+          contactFirstName: form.firstName,
+          phone: form.phone || '',
+          addressLine1: form.address,
+          addressLine2: '',
           city: form.city,
           state: form.state,
           postalCode: form.postalCode,
-        },
-        items: cart.items.map(i => ({ productCode: i.code, quantity: i.quantity, price: i.price })),
-        subtotal: cart.subtotal,
+          country: '',
+          salesRep: {
+            employeeNumber: 0,
+            lastName: '',
+            firstName: '',
+            extension: '',
+            email: form.email || '',
+            office: {
+              officeCode: '',
+              city: '',
+              phone: '',
+              addressLine1: '',
+              addressLine2: '',
+              state: '',
+              country: '',
+              postalCode: '',
+              territory: ''
+            },
+            reportsTo: '',
+            jobTitle: ''
+          },
+          creditLimit: 0
+        }
       };
       const created = await createOrder(orderPayload);
       // Try to derive orderNumber from response
