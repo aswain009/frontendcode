@@ -46,8 +46,9 @@ export default function CheckoutPage() {
     setStatus({ loading: true, error: null });
     try {
       const today = new Date().toISOString().slice(0, 10);
+      const newOrderNumber = Math.max(1, Math.floor(Date.now() % 2147483647));
       const orderPayload = {
-        orderNumber: 0,
+        orderNumber: newOrderNumber,
         orderDate: today,
         requiredDate: today,
         shippedDate: today,
@@ -90,7 +91,7 @@ export default function CheckoutPage() {
       };
       const created = await createOrder(orderPayload);
       // Try to derive orderNumber from response
-      const orderNumber = created?.orderNumber || created?.id || created?.orderNo;
+      const orderNumber = created?.orderNumber || created?.id || created?.orderNo || orderPayload.orderNumber;
       clearCart();
       if (orderNumber) {
         router.push(`/order-confirmation/${encodeURIComponent(orderNumber)}`);

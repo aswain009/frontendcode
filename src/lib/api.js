@@ -56,9 +56,22 @@ export function getOrderDetails(orderNumber) {
   return safeFetch(`/orders/${encodeURIComponent(orderNumber)}/details`);
 }
 export function createOrder(order) {
+  const ord = order || {};
+  // Ensure we always have a non-zero 32-bit order number in the body
+  let orderNumber = ord.orderNumber || ord.id || ord.orderNo || Math.max(1, Math.floor(Date.now() % 2147483647));
+  const body = JSON.stringify({ ...ord, orderNumber });
+  const mode = (process.env.NEXT_PUBLIC_ORDERS_CREATE_MODE || 'post').toLowerCase();
+  if (mode === 'path') {
+    // Some deployments require the order number in the path
+    return safeFetch(`/orders/${encodeURIComponent(orderNumber)}`, {
+      method: 'PUT',
+      body,
+    });
+  }
+  // Default: POST /orders with body
   return safeFetch('/orders', {
     method: 'POST',
-    body: JSON.stringify(order),
+    body,
   });
 }
 export function updateOrder(orderNumber, order) {
