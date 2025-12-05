@@ -2,28 +2,64 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api/
 
 async function safeFetch(path, options = {}) {
   const url = `${API_BASE}${path}`;
+  const method = (options.method || 'GET').toUpperCase();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+  const requestBody = typeof options.body === 'string' ? options.body : options.body ? JSON.stringify(options.body) : undefined;
+  const startedAt = Date.now();
   try {
+    console.groupCollapsed(`[API] ${method} ${url}`);
+    console.log('Request headers:', headers);
+    if (requestBody) {
+      try { console.log('Request body (parsed):', JSON.parse(requestBody)); } catch { console.log('Request body (raw):', requestBody); }
+    } else {
+      console.log('Request body: <none>');
+    }
     const res = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-      },
+      method,
+      headers,
+      body: requestBody,
       // Revalidate data periodically on the server; client fetch unaffected
       next: { revalidate: 30 },
     });
+    const durationMs = Date.now() - startedAt;
+    const responseCt = res.headers.get('content-type') || '';
+    const responseText = await res.text();
+    let parsed;
+    if (responseCt.includes('application/json')) {
+      try { parsed = responseText ? JSON.parse(responseText) : null; } catch {}
+    }
+    console.log('Status:', res.status, res.statusText, `(${durationMs} ms)`);
+    console.log('Response headers:', Object.fromEntries([...res.headers.entries()]));
+    console.log('Response body:', parsed !== undefined ? parsed : responseText);
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Request failed ${res.status} ${res.statusText}: ${text}`);
+      const err = new Error(`Request failed ${res.status} ${res.statusText}`);
+      err.status = res.status;
+      err.statusText = res.statusText;
+      err.url = url;
+      err.method = method;
+      err.requestHeaders = headers;
+      err.requestBody = requestBody;
+      err.responseHeaders = Object.fromEntries([...res.headers.entries()]);
+      err.responseText = responseText;
+      err.responseJson = parsed;
+      err.startedAt = startedAt;
+      err.durationMs = durationMs;
+      console.error('API request failed:', err);
+      console.groupEnd();
+      throw err;
     }
-    // try json; allow empty
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('application/json')) {
-      return await res.json();
-    }
-    return null;
+    console.groupEnd();
+    return parsed !== undefined ? parsed : null;
   } catch (err) {
-    console.error('API error', url, err);
+    // If fetch itself threw (network, CORS), log with context
+    try {
+      console.error('API error (network/uncaught):', { url, method, headers, requestBody });
+      console.error(err);
+    } catch {}
     throw err;
   }
 }
@@ -57,14 +93,11 @@ export function getOrderDetails(orderNumber) {
 }
 export function createOrder(order) {
   const ord = order || {};
-  const mode = (process.env.NEXT_PUBLIC_ORDERS_CREATE_MODE || 'post').toLowerCase();
-  const orderNumber = ord.orderNumber || ord.id || ord.orderNo || Math.max(1, Math.floor(Date.now() % 2147483647));
-
-  // POST mode: Backend expects orderNumber to be 0 in the request bodyconst orderNumber = ord.orderNumber || ord.id || ord.orderNo || Math.max(1, Math.floor(Date.now() % 2147483647));
-  const body = JSON.stringify({ ...ord, orderNumber: orderNumber });
+  // Per docs for POST /orders, send orderNumber: 0
+  const bodyObj = { ...ord, orderNumber: 0 };
   return safeFetch('/orders', {
     method: 'POST',
-    body,
+    body: JSON.stringify(bodyObj),
   });
 }
 export function updateOrder(orderNumber, order) {
