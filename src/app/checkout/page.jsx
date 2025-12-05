@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getCart, clearCart } from '@/lib/cart';
 //import { updateProduct, createOrder } from '@/lib/api';
-import { createOrder, getEmployees, API_BASE } from '@/lib/api';
+import { createOrder, getEmployees, getCustomers, API_BASE } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 function serializeError(err) {
@@ -39,6 +39,12 @@ export default function CheckoutPage() {
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [employeesError, setEmployeesError] = useState(null);
   const [selectedRepId, setSelectedRepId] = useState('');
+
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [customersError, setCustomersError] = useState(null);
+  const [selectedCustomerNumber, setSelectedCustomerNumber] = useState('');
+
   const [debug, setDebug] = useState({ request: null, response: null, error: null });
 
   useEffect(() => {
@@ -60,8 +66,32 @@ export default function CheckoutPage() {
         setEmployeesLoading(false);
       }
     }
+    async function loadCustomers() {
+      setCustomersLoading(true);
+      setCustomersError(null);
+      try {
+        const list = await getCustomers();
+        setCustomers(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error('Failed to load customers', e);
+        setCustomersError('Failed to load customers');
+      } finally {
+        setCustomersLoading(false);
+      }
+    }
     loadEmployees();
+    loadCustomers();
   }, []);
+
+  // When customer selection changes, auto-select their sales rep if available
+  useEffect(() => {
+    const custNum = Number(selectedCustomerNumber);
+    if (!custNum) return;
+    const cust = customers.find(c => Number(c.customerNumber ?? c.id) === custNum);
+    if (cust?.salesRep?.employeeNumber) {
+      setSelectedRepId(String(cust.salesRep.employeeNumber));
+    }
+  }, [selectedCustomerNumber, customers]);
 
   // Ensure salesRep.reportsTo is sent as an Employee object (not a number)
   function normalizeReportsTo(value) {
@@ -79,36 +109,58 @@ export default function CheckoutPage() {
 
   async function onSubmit(e) {
     e.preventDefault();
-    //Call updateProduct API to update inventory for each item in cart.
-    //Validate inventory before placing order.
-    //Provide feedback to user if inventory is insufficient.
-    //Maybe provide alternative items? Maybe not? Not sure on the lift for that.
-
-    //Call createOrder API to create the order.
-    //Provide feedback to user if order creation fails.
-    //If order creation fails for any reason, the cart should NOT be cleared and the user should be able to try again.
-    //If the order is successfully created, the cart should be cleared and the user should be redirected to the order confirmation page/Order Conformation deatials should be displayed to the user.
-
-    //Confirm order creation API data.
-
     if (cart.items.length === 0) {
       setStatus({ loading: false, error: 'Your cart is empty.' });
       return;
     }
+
+    // Validate customer selection
+    const custNum = Number(selectedCustomerNumber);
+    const selectedCustomer = customers.find(c => Number(c.customerNumber ?? c.id) === custNum);
+    if (!selectedCustomer) {
+      setStatus({ loading: false, error: 'Please select a customer before placing the order.' });
+      return;
+    }
+
     setStatus({ loading: true, error: null });
     try {
       const today = new Date().toISOString().slice(0, 10);
       const newOrderNumber = Math.max(1, Math.floor(Date.now() % 2147483647));
 
-      // Validate Sales Rep selection
+      // Validate/prepare Sales Rep
       const repIdNum = Number(selectedRepId);
-      const selectedRep = employees.find(e => Number(e.employeeNumber) === repIdNum);
+      const fallbackRep = selectedCustomer?.salesRep;
+      const selectedRep = employees.find(e => Number(e.employeeNumber) === repIdNum) || fallbackRep;
       if (!selectedRep) {
         setStatus({ loading: false, error: 'Please select a sales rep before placing the order.' });
         return;
       }
 
-      const repOffice = selectedRep.office || {};
+      const repOffice = (selectedRep.office) || {};
+
+      // Build customer payload from the selected customer object
+      const customerPayload = JSON.parse(JSON.stringify(selectedCustomer));
+      // Ensure salesRep matches the chosen rep and normalize reportsTo
+      customerPayload.salesRep = {
+        employeeNumber: selectedRep.employeeNumber || 0,
+        lastName: selectedRep.lastName || '',
+        firstName: selectedRep.firstName || '',
+        extension: selectedRep.extension || '',
+        email: selectedRep.email || '',
+        office: {
+          officeCode: repOffice.officeCode || '',
+          city: repOffice.city || '',
+          phone: repOffice.phone || '',
+          addressLine1: repOffice.addressLine1 || '',
+          addressLine2: repOffice.addressLine2 ?? '',
+          state: repOffice.state ?? '',
+          country: repOffice.country || '',
+          postalCode: repOffice.postalCode || '',
+          territory: repOffice.territory || ''
+        },
+        reportsTo: normalizeReportsTo(selectedRep.reportsTo),
+        jobTitle: selectedRep.jobTitle || ''
+      };
 
       const orderPayload = {
         orderNumber: newOrderNumber,
@@ -117,54 +169,19 @@ export default function CheckoutPage() {
         shippedDate: today,
         status: 'Submitted',
         comments: '',
-        customer: {
-          customerNumber: 0,
-          customerName: `${form.firstName} ${form.lastName}`.trim(),
-          contactLastName: form.lastName,
-          contactFirstName: form.firstName,
-          phone: form.phone || '',
-          addressLine1: form.address,
-          addressLine2: '',
-          city: form.city,
-          state: form.state,
-          postalCode: form.postalCode,
-          country: '',
-          salesRep: {
-            employeeNumber: selectedRep.employeeNumber || 0,
-            lastName: selectedRep.lastName || '',
-            firstName: selectedRep.firstName || '',
-            extension: selectedRep.extension || '',
-            email: selectedRep.email || '',
-            office: {
-              officeCode: repOffice.officeCode || '',
-              city: repOffice.city || '',
-              phone: repOffice.phone || '',
-              addressLine1: repOffice.addressLine1 || '',
-              addressLine2: repOffice.addressLine2 || '',
-              state: repOffice.state || '',
-              country: repOffice.country || '',
-              postalCode: repOffice.postalCode || '',
-              territory: repOffice.territory || ''
-            },
-            reportsTo: normalizeReportsTo(selectedRep.reportsTo),
-            jobTitle: selectedRep.jobTitle || ''
-          },
-          creditLimit: 0
-        }
+        customer: customerPayload
       };
       console.log('[Checkout] Placing order to', `${API_BASE}/orders`);
       console.log('[Checkout] Request payload:', orderPayload);
       setDebug(d => ({ ...d, request: orderPayload, response: null, error: null }));
       const created = await createOrder(orderPayload);
       console.log('[Checkout] createOrder response:', created);
-      // Try to derive orderNumber from response
       const orderNumber = created?.orderNumber || created?.id || created?.orderNo || orderPayload.orderNumber;
       setDebug(d => ({ ...d, response: created }));
       clearCart();
       if (orderNumber) {
         router.push(`/order-confirmation/${encodeURIComponent(orderNumber)}`);
       } else {
-        // if API doesn't return a number, go to orders list page alternative
         router.push('/order-confirmation/unknown');
       }
     } catch (err) {
@@ -200,6 +217,25 @@ export default function CheckoutPage() {
               <input className="border rounded px-3 py-2" placeholder="City" value={form.city} onChange={e => setField('city', e.target.value)} required />
               <input className="border rounded px-3 py-2" placeholder="State" value={form.state} onChange={e => setField('state', e.target.value)} required />
               <input className="border rounded px-3 py-2" placeholder="Postal Code" value={form.postalCode} onChange={e => setField('postalCode', e.target.value)} required />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Customer</label>
+              <select
+                className="border rounded px-3 py-2 w-full"
+                value={selectedCustomerNumber}
+                onChange={e => setSelectedCustomerNumber(e.target.value)}
+                required
+                disabled={customersLoading}
+              >
+                <option value="" disabled>{customersLoading ? 'Loading customers...' : 'Select a customer'}</option>
+                {!customersLoading && customers.map(c => (
+                  <option key={c.customerNumber ?? c.id} value={c.customerNumber ?? c.id}>
+                    {(c.customerName || [c.contactFirstName, c.contactLastName].filter(Boolean).join(' ') || 'Customer')} {(c.customerNumber ?? c.id) ? `(#${c.customerNumber ?? c.id})` : ''}
+                  </option>
+                ))}
+              </select>
+              {customersError && <div className="text-yellow-700 text-xs mt-1">{customersError}</div>}
             </div>
 
             <div>

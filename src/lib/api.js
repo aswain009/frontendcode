@@ -92,12 +92,15 @@ export function getOrderDetails(orderNumber) {
   return safeFetch(`/orders/${encodeURIComponent(orderNumber)}/details`);
 }
 export function createOrder(order) {
-  const ord = order || {};
-  // Per docs for POST /orders, send orderNumber: 0
-  const bodyObj = { ...ord, orderNumber: 0 };
+  const ord = { ...(order || {}) };
+  // Ensure a non-zero orderNumber. If missing or 0, generate a timestamp-based number (32-bit safe-ish)
+  const ensuredOrderNumber = Number(ord.orderNumber);
+  if (!Number.isFinite(ensuredOrderNumber) || ensuredOrderNumber === 0) {
+    ord.orderNumber = Math.max(1, Math.floor(Date.now() % 2147483647));
+  }
   return safeFetch('/orders', {
     method: 'POST',
-    body: JSON.stringify(bodyObj),
+    body: JSON.stringify(ord),
   });
 }
 export function updateOrder(orderNumber, order) {
