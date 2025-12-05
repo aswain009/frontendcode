@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getCart, clearCart } from '@/lib/cart';
 //import { updateProduct, createOrder } from '@/lib/api';
-import { createOrder } from '@/lib/api';
+import { createOrder, getEmployees } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 export default function CheckoutPage() {
@@ -20,9 +20,31 @@ export default function CheckoutPage() {
     postalCode: '',
   });
   const [status, setStatus] = useState({ loading: false, error: null });
+  const [employees, setEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [employeesError, setEmployeesError] = useState(null);
+  const [selectedRepId, setSelectedRepId] = useState('');
 
   useEffect(() => {
     setCart(getCart());
+  }, []);
+
+  useEffect(() => {
+    async function loadEmployees() {
+      setEmployeesLoading(true);
+      setEmployeesError(null);
+      try {
+        const list = await getEmployees();
+        // Expect array of employees with employeeNumber, firstName, lastName
+        setEmployees(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error('Failed to load employees', e);
+        setEmployeesError('Failed to load sales reps');
+      } finally {
+        setEmployeesLoading(false);
+      }
+    }
+    loadEmployees();
   }, []);
 
   async function onSubmit(e) {
@@ -47,6 +69,17 @@ export default function CheckoutPage() {
     try {
       const today = new Date().toISOString().slice(0, 10);
       const newOrderNumber = Math.max(1, Math.floor(Date.now() % 2147483647));
+
+      // Validate Sales Rep selection
+      const repIdNum = Number(selectedRepId);
+      const selectedRep = employees.find(e => Number(e.employeeNumber) === repIdNum);
+      if (!selectedRep) {
+        setStatus({ loading: false, error: 'Please select a sales rep before placing the order.' });
+        return;
+      }
+
+      const repOffice = selectedRep.office || {};
+
       const orderPayload = {
         orderNumber: newOrderNumber,
         orderDate: today,
@@ -67,24 +100,24 @@ export default function CheckoutPage() {
           postalCode: form.postalCode,
           country: '',
           salesRep: {
-            employeeNumber: 0,
-            lastName: '',
-            firstName: '',
-            extension: '',
-            email: form.email || '',
+            employeeNumber: selectedRep.employeeNumber || 0,
+            lastName: selectedRep.lastName || '',
+            firstName: selectedRep.firstName || '',
+            extension: selectedRep.extension || '',
+            email: selectedRep.email || '',
             office: {
-              officeCode: '',
-              city: '',
-              phone: '',
-              addressLine1: '',
-              addressLine2: '',
-              state: '',
-              country: '',
-              postalCode: '',
-              territory: ''
+              officeCode: repOffice.officeCode || '',
+              city: repOffice.city || '',
+              phone: repOffice.phone || '',
+              addressLine1: repOffice.addressLine1 || '',
+              addressLine2: repOffice.addressLine2 || '',
+              state: repOffice.state || '',
+              country: repOffice.country || '',
+              postalCode: repOffice.postalCode || '',
+              territory: repOffice.territory || ''
             },
-            reportsTo: '',
-            jobTitle: ''
+            reportsTo: selectedRep.reportsTo || '',
+            jobTitle: selectedRep.jobTitle || ''
           },
           creditLimit: 0
         }
@@ -131,8 +164,28 @@ export default function CheckoutPage() {
               <input className="border rounded px-3 py-2" placeholder="State" value={form.state} onChange={e => setField('state', e.target.value)} required />
               <input className="border rounded px-3 py-2" placeholder="Postal Code" value={form.postalCode} onChange={e => setField('postalCode', e.target.value)} required />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Sales Rep</label>
+              <select
+                className="border rounded px-3 py-2 w-full"
+                value={selectedRepId}
+                onChange={e => setSelectedRepId(e.target.value)}
+                required
+                disabled={employeesLoading}
+              >
+                <option value="" disabled>{employeesLoading ? 'Loading sales reps...' : 'Select a sales rep'}</option>
+                {!employeesLoading && employees.map(emp => (
+                  <option key={emp.employeeNumber} value={emp.employeeNumber}>
+                    {(emp.firstName || '') + ' ' + (emp.lastName || '')} {emp.jobTitle ? `- ${emp.jobTitle}` : ''}
+                  </option>
+                ))}
+              </select>
+              {employeesError && <div className="text-yellow-700 text-xs mt-1">{employeesError}</div>}
+            </div>
+
             {status.error && <div className="text-red-600 text-sm">{status.error}</div>}
-            <button disabled={status.loading} className="bg-blue-600 text-white px-4 py-2 rounded">
+            <button disabled={status.loading || employeesLoading} className="bg-blue-600 text-white px-4 py-2 rounded">
               {status.loading ? 'Placing order...' : 'Place Order'}
             </button>
           </form>

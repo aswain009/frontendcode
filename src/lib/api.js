@@ -98,4 +98,9 @@ export function deleteCustomer(id) {
   return safeFetch(`/customers/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+// Employees
+export function getEmployees() {
+  return safeFetch('/employees');
+}
+
 export { API_BASE };
