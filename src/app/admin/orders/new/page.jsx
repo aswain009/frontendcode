@@ -1,25 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { createCustomer, createOrder, getCustomers, getProducts, API_BASE } from '@/lib/api';
+import { createCustomer, createOrder, getCustomers, getProducts } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
-function serializeError(err) {
-  if (!err) return null;
-  const base = { name: err.name, message: err.message, stack: err.stack };
-  const extras = {};
-  for (const k of ['status','statusText','url','method','requestHeaders','requestBody','responseHeaders','responseText','responseJson','startedAt','durationMs']) {
-    if (err[k] !== undefined) extras[k] = err[k];
-  }
-  return { ...base, ...extras };
-}
 
 export default function NewOrderPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [status, setStatus] = useState({ loading: true, saving: false, error: null });
-  const [debug, setDebug] = useState({ request: null, response: null, error: null });
 
   const [useExistingCustomer, setUseExistingCustomer] = useState(true);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -86,21 +76,14 @@ export default function NewOrderPage() {
         subtotal,
         source: 'admin',
       };
-      console.log('[Admin/NewOrder] Placing order to', `${API_BASE}/orders`);
-      console.log('[Admin/NewOrder] Request payload:', orderPayload);
-      setDebug(d => ({ ...d, request: orderPayload, response: null, error: null }));
       const res = await createOrder(orderPayload);
-      console.log('[Admin/NewOrder] createOrder response:', res);
       const orderNumber = res?.orderNumber || res?.id || res?.orderNo;
-      setDebug(d => ({ ...d, response: res }));
       router.push('/admin/orders');
       router.refresh?.();
       // Optionally redirect to the newly created order confirmation page:
       // if (orderNumber) router.push(`/order-confirmation/${encodeURIComponent(orderNumber)}`);
     } catch (e) {
-      console.error('[Admin/NewOrder] createOrder failed:', e);
-      setDebug(d => ({ ...d, error: serializeError(e) }));
-      setStatus(s => ({ ...s, saving: false, error: e.message || 'Failed to create order' }));
+      setStatus(s => ({ ...s, saving: false, error: e?.message || 'Failed to create order' }));
     }
   }
 
@@ -177,24 +160,6 @@ export default function NewOrderPage() {
         </div>
       </form>
 
-      <details className="mt-6 border rounded">
-        <summary className="px-3 py-2 cursor-pointer select-none">Debug: Create Order (Admin)</summary>
-        <div className="p-3 space-y-2 text-xs">
-          <div><strong>API Base:</strong> {API_BASE}</div>
-          <div>
-            <strong>Last Request Body:</strong>
-            <pre className="whitespace-pre-wrap break-all bg-gray-50 p-2 rounded border">{JSON.stringify(debug.request, null, 2) || '—'}</pre>
-          </div>
-          <div>
-            <strong>Last Response:</strong>
-            <pre className="whitespace-pre-wrap break-all bg-gray-50 p-2 rounded border">{JSON.stringify(debug.response, null, 2) || '—'}</pre>
-          </div>
-          <div>
-            <strong>Last Error:</strong>
-            <pre className="whitespace-pre-wrap break-all bg-gray-50 p-2 rounded border">{JSON.stringify(debug.error, null, 2) || '—'}</pre>
-          </div>
-        </div>
-      </details>
     </div>
   );
 }

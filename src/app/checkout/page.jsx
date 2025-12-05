@@ -3,23 +3,9 @@
 import { useEffect, useState } from 'react';
 import { getCart, clearCart } from '@/lib/cart';
 //import { updateProduct, createOrder } from '@/lib/api';
-import { createOrder, getEmployees, getCustomers, API_BASE } from '@/lib/api';
+import { createOrder, getEmployees, getCustomers } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
-function serializeError(err) {
-  if (!err) return null;
-  const base = {
-    name: err.name,
-    message: err.message,
-    stack: err.stack,
-  };
-  // include custom fields from safeFetch
-  const extras = {};
-  for (const k of ['status','statusText','url','method','requestHeaders','requestBody','responseHeaders','responseText','responseJson','startedAt','durationMs']) {
-    if (err[k] !== undefined) extras[k] = err[k];
-  }
-  return { ...base, ...extras };
-}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -45,7 +31,6 @@ export default function CheckoutPage() {
   const [customersError, setCustomersError] = useState(null);
   const [selectedCustomerNumber, setSelectedCustomerNumber] = useState('');
 
-  const [debug, setDebug] = useState({ request: null, response: null, error: null });
 
   useEffect(() => {
     setCart(getCart());
@@ -60,7 +45,6 @@ export default function CheckoutPage() {
         // Expect array of employees with employeeNumber, firstName, lastName
         setEmployees(Array.isArray(list) ? list : []);
       } catch (e) {
-        console.error('Failed to load employees', e);
         setEmployeesError('Failed to load sales reps');
       } finally {
         setEmployeesLoading(false);
@@ -171,13 +155,8 @@ export default function CheckoutPage() {
         comments: '',
         customer: customerPayload
       };
-      console.log('[Checkout] Placing order to', `${API_BASE}/orders`);
-      console.log('[Checkout] Request payload:', orderPayload);
-      setDebug(d => ({ ...d, request: orderPayload, response: null, error: null }));
       const created = await createOrder(orderPayload);
-      console.log('[Checkout] createOrder response:', created);
       const orderNumber = created?.orderNumber || created?.id || created?.orderNo || orderPayload.orderNumber;
-      setDebug(d => ({ ...d, response: created }));
       clearCart();
       if (orderNumber) {
         router.push(`/order-confirmation/${encodeURIComponent(orderNumber)}`);
@@ -185,9 +164,7 @@ export default function CheckoutPage() {
         router.push('/order-confirmation/unknown');
       }
     } catch (err) {
-      console.error('[Checkout] createOrder failed:', err);
-      setDebug(d => ({ ...d, error: serializeError(err) }));
-      setStatus({ loading: false, error: err.message || 'Failed to place order' });
+      setStatus({ loading: false, error: err?.message || 'Failed to place order' });
       return;
     }
   }
@@ -277,24 +254,6 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      <details className="mt-6 border rounded">
-        <summary className="px-3 py-2 cursor-pointer select-none">Debug: Create Order</summary>
-        <div className="p-3 space-y-2 text-xs">
-          <div><strong>API Base:</strong> {API_BASE}</div>
-          <div>
-            <strong>Last Request Body:</strong>
-            <pre className="whitespace-pre-wrap break-all bg-gray-50 p-2 rounded border">{JSON.stringify(debug.request, null, 2) || '—'}</pre>
-          </div>
-          <div>
-            <strong>Last Response:</strong>
-            <pre className="whitespace-pre-wrap break-all bg-gray-50 p-2 rounded border">{JSON.stringify(debug.response, null, 2) || '—'}</pre>
-          </div>
-          <div>
-            <strong>Last Error:</strong>
-            <pre className="whitespace-pre-wrap break-all bg-gray-50 p-2 rounded border">{JSON.stringify(debug.error, null, 2) || '—'}</pre>
-          </div>
-        </div>
-      </details>
     </div>
   );
 }

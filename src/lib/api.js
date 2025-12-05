@@ -8,60 +8,25 @@ async function safeFetch(path, options = {}) {
     ...(options.headers || {}),
   };
   const requestBody = typeof options.body === 'string' ? options.body : options.body ? JSON.stringify(options.body) : undefined;
-  const startedAt = Date.now();
-  try {
-    console.groupCollapsed(`[API] ${method} ${url}`);
-    console.log('Request headers:', headers);
-    if (requestBody) {
-      try { console.log('Request body (parsed):', JSON.parse(requestBody)); } catch { console.log('Request body (raw):', requestBody); }
-    } else {
-      console.log('Request body: <none>');
-    }
-    const res = await fetch(url, {
-      ...options,
-      method,
-      headers,
-      body: requestBody,
-      // Revalidate data periodically on the server; client fetch unaffected
-      next: { revalidate: 30 },
-    });
-    const durationMs = Date.now() - startedAt;
-    const responseCt = res.headers.get('content-type') || '';
-    const responseText = await res.text();
-    let parsed;
-    if (responseCt.includes('application/json')) {
-      try { parsed = responseText ? JSON.parse(responseText) : null; } catch {}
-    }
-    console.log('Status:', res.status, res.statusText, `(${durationMs} ms)`);
-    console.log('Response headers:', Object.fromEntries([...res.headers.entries()]));
-    console.log('Response body:', parsed !== undefined ? parsed : responseText);
-    if (!res.ok) {
-      const err = new Error(`Request failed ${res.status} ${res.statusText}`);
-      err.status = res.status;
-      err.statusText = res.statusText;
-      err.url = url;
-      err.method = method;
-      err.requestHeaders = headers;
-      err.requestBody = requestBody;
-      err.responseHeaders = Object.fromEntries([...res.headers.entries()]);
-      err.responseText = responseText;
-      err.responseJson = parsed;
-      err.startedAt = startedAt;
-      err.durationMs = durationMs;
-      console.error('API request failed:', err);
-      console.groupEnd();
-      throw err;
-    }
-    console.groupEnd();
-    return parsed !== undefined ? parsed : null;
-  } catch (err) {
-    // If fetch itself threw (network, CORS), log with context
-    try {
-      console.error('API error (network/uncaught):', { url, method, headers, requestBody });
-      console.error(err);
-    } catch {}
+  const res = await fetch(url, {
+    ...options,
+    method,
+    headers,
+    body: requestBody,
+    next: { revalidate: 30 },
+  });
+  const responseCt = res.headers.get('content-type') || '';
+  const responseText = await res.text();
+  let parsed;
+  if (responseCt.includes('application/json')) {
+    try { parsed = responseText ? JSON.parse(responseText) : null; } catch {}
+  }
+  if (!res.ok) {
+    const err = new Error(parsed?.message || parsed?.error || `Request failed ${res.status} ${res.statusText}`);
+    err.status = res.status;
     throw err;
   }
+  return parsed !== undefined ? parsed : null;
 }
 
 // Products
