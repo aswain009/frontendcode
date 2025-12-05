@@ -1,4 +1,9 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api/lugnuts";
+// Pick API base from env; if not provided, choose based on runtime (dev vs deployed)
+const DEFAULT_DEV_API = "http://localhost:8080/api/lugnuts";
+const DEFAULT_PROD_API = "https://javaspringprojectapi-production.up.railway.app/api/lugnuts";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || (typeof window !== 'undefined'
+  ? ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? DEFAULT_DEV_API : DEFAULT_PROD_API)
+  : DEFAULT_DEV_API);
 
 async function safeFetch(path, options = {}) {
   const url = `${API_BASE}${path}`;
@@ -13,7 +18,8 @@ async function safeFetch(path, options = {}) {
     method,
     headers,
     body: requestBody,
-    next: { revalidate: 30 },
+    // Avoid caching dynamic API responses in deployed environments
+    cache: 'no-store',
   });
   const responseCt = res.headers.get('content-type') || '';
   const responseText = await res.text();
@@ -77,7 +83,20 @@ export function deleteOrder(orderNumber) {
 
 // Customers
 export function getCustomers() {
-  return safeFetch('/customers');
+  return safeFetch('/customers').then(list => {
+    if (!Array.isArray(list)) return [];
+    // Normalize API shape: some deployments may return [{ customer: { ... } }, ...]
+    const flat = list
+      .map(item => (item && item.customer ? item.customer : item))
+      .filter(c => {
+        if (!c) return false;
+        const hasNumber = c.customerNumber !== undefined && c.customerNumber !== null;
+        const hasId = c.id !== undefined && c.id !== null;
+        const hasName = typeof c.customerName === 'string' && c.customerName.length > 0;
+        return hasNumber || hasId || hasName;
+      });
+    return flat;
+  });
 }
 export function getCustomer(id) {
   return safeFetch(`/customers/${encodeURIComponent(id)}`);

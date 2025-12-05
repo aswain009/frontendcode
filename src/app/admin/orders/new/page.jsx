@@ -178,9 +178,11 @@ export default function NewOrderPage() {
             value={selectedCustomerNumber}
             onChange={e => setSelectedCustomerNumber(e.target.value)}
             required
-            disabled={customersLoading}
+            disabled={customersLoading || (Array.isArray(customers) && customers.length === 0)}
           >
-            <option value="" disabled>{customersLoading ? 'Loading customers...' : 'Select a customer'}</option>
+            <option value="" disabled>
+              {customersLoading ? 'Loading customers...' : (Array.isArray(customers) && customers.length === 0 ? 'No customers found. Check API_BASE config.' : 'Select a customer')}
+            </option>
             {!customersLoading && (customers || []).map(c => (
               <option key={c.customerNumber ?? c.id} value={c.customerNumber ?? c.id}>
                 {(c.customerName || [c.contactFirstName, c.contactLastName].filter(Boolean).join(' ') || 'Customer')} {(c.customerNumber ?? c.id) ? `(#${c.customerNumber ?? c.id})` : ''}
@@ -188,6 +190,9 @@ export default function NewOrderPage() {
             ))}
           </select>
           {customersError && <div className="text-yellow-700 text-xs mt-1">{customersError}</div>}
+          {!customersError && !customersLoading && Array.isArray(customers) && customers.length === 0 && (
+            <div className="text-yellow-700 text-xs mt-1">Customers list is empty. Ensure NEXT_PUBLIC_API_BASE is set for production and CORS allows the request.</div>
+          )}
         </div>
 
         <div>
