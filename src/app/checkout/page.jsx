@@ -63,6 +63,20 @@ export default function CheckoutPage() {
     loadEmployees();
   }, []);
 
+  // Ensure salesRep.reportsTo is sent as an Employee object (not a number)
+  function normalizeReportsTo(value) {
+    if (!value && value !== 0) return null;
+    if (typeof value === 'object' && value !== null) {
+      // If it's already an object and has an employeeNumber, pass through
+      if ('employeeNumber' in value) return value;
+      // Try to coerce if it's something like { id: 123 }
+      if ('id' in value && typeof value.id === 'number') return { employeeNumber: Number(value.id) };
+      return null;
+    }
+    const num = Number(value);
+    return Number.isFinite(num) && num > 0 ? { employeeNumber: num } : null;
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     //Call updateProduct API to update inventory for each item in cart.
@@ -132,7 +146,7 @@ export default function CheckoutPage() {
               postalCode: repOffice.postalCode || '',
               territory: repOffice.territory || ''
             },
-            reportsTo: selectedRep.reportsTo || '',
+            reportsTo: normalizeReportsTo(selectedRep.reportsTo),
             jobTitle: selectedRep.jobTitle || ''
           },
           creditLimit: 0
