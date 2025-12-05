@@ -26,6 +26,7 @@ export default async function AdminOrdersPage() {
             <th className="text-left p-2">Date</th>
             <th className="text-left p-2">Customer</th>
             <th className="text-left p-2">Status</th>
+            <th className="text-left p-2">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -35,6 +36,9 @@ export default async function AdminOrdersPage() {
               <td className="p-2">{o.orderDate || o.createdAt || ''}</td>
               <td className="p-2">{o.customerName || (o.customer && ([o.customer.firstName, o.customer.lastName].filter(Boolean).join(' '))) || '—'}</td>
               <td className="p-2">{o.status || '—'}</td>
+              <td className="p-2">
+                <Link href={`/admin/orders/${encodeURIComponent(o.orderNumber || o.id)}/edit`} className="underline text-blue-600">Edit</Link>
+              </td>
             </tr>
           ))}
         </tbody>

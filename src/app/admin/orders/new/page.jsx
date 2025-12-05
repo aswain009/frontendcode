@@ -155,6 +155,10 @@ export default function NewOrderPage() {
       const orderNumber = created?.orderNumber || created?.id || created?.orderNo || orderPayload.orderNumber;
 
       setStatus(s => ({ ...s, saving: false, success: 'Order created successfully.', error: null, orderNumber }));
+      // Clear the form on success
+      setSelectedCustomerNumber('');
+      setSelectedRepId('');
+      setItems([{ productCode: '', quantity: 1 }]);
       // Do not redirect per requirement
     } catch (e) {
       setStatus(s => ({ ...s, saving: false, error: e?.message || 'Failed to create order', success: null }));
@@ -166,9 +170,9 @@ export default function NewOrderPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">New Order</h1>
-      {status.error && <div className="text-red-600 text-sm">{status.error}</div>}
+      {status.error && <div className="text-red-600 font-semibold text-base">{status.error}</div>}
       {status.success && (
-        <div className="text-green-700 text-sm">{status.success} {status.orderNumber ? `#${status.orderNumber}` : ''}</div>
+        <div className="text-green-700 font-semibold text-base">{status.success} {status.orderNumber ? `#${status.orderNumber}` : ''}</div>
       )}
       <form onSubmit={onSubmit} className="space-y-6">
         <div className="space-y-2">
