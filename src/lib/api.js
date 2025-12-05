@@ -100,7 +100,14 @@ export function deleteCustomer(id) {
 
 // Employees
 export function getEmployees() {
-  return safeFetch('/employees');
+  return safeFetch('/employees').then(list => {
+    if (!Array.isArray(list)) return [];
+    // Normalize API shape: server may return [{ salesRep: { ... } }, ...]
+    const flat = list
+      .map(item => (item && item.salesRep ? item.salesRep : item))
+      .filter(emp => emp && (emp.employeeNumber !== undefined && emp.employeeNumber !== null));
+    return flat;
+  });
 }
 
 export { API_BASE };
