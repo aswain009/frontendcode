@@ -1,34 +1,59 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { createCustomer, createOrder, getCustomers, getProducts } from '@/lib/api';
+import { createOrder, getCustomers, getProducts } from '@/lib/api';
+import { loadEmployees } from '@/lib/employees';
 import { useRouter } from 'next/navigation';
-
 
 export default function NewOrderPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [status, setStatus] = useState({ loading: true, saving: false, error: null });
+  const [customersLoading, setCustomersLoading] = useState(true);
+  const [customersError, setCustomersError] = useState(null);
 
-  const [useExistingCustomer, setUseExistingCustomer] = useState(true);
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [customerForm, setCustomerForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+  const [employees, setEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [employeesError, setEmployeesError] = useState(null);
+
+  const [products, setProducts] = useState([]);
+
+  const [status, setStatus] = useState({ loading: true, saving: false, error: null, success: null, orderNumber: null });
+
+  const [selectedCustomerNumber, setSelectedCustomerNumber] = useState('');
+  const [selectedRepId, setSelectedRepId] = useState('');
 
   const [items, setItems] = useState([{ productCode: '', quantity: 1 }]);
 
   useEffect(() => {
     (async () => {
       try {
-        const [cs, ps] = await Promise.all([getCustomers(), getProducts()]);
-        setCustomers(cs || []);
+        setCustomersLoading(true);
+        setEmployeesLoading(true);
+        const [cs, ps, emps] = await Promise.all([getCustomers(), getProducts(), loadEmployees()]);
+        setCustomers(Array.isArray(cs) ? cs : []);
         setProducts(ps || []);
+        setEmployees(Array.isArray(emps) ? emps : []);
         setStatus(s => ({ ...s, loading: false }));
       } catch (e) {
-        setStatus({ loading: false, saving: false, error: e.message || 'Failed to load data' });
+        setStatus({ loading: false, saving: false, error: e.message || 'Failed to load data', success: null, orderNumber: null });
+        setCustomersError('Failed to load customers');
+        setEmployeesError('Failed to load sales reps');
+      } finally {
+        setCustomersLoading(false);
+        setEmployeesLoading(false);
       }
     })();
   }, []);
+
+  // Auto-pick sales rep when customer changes
+  useEffect(() => {
+    const custNum = Number(selectedCustomerNumber);
+    if (!custNum) return;
+    const cust = customers.find(c => Number(c.customerNumber ?? c.id) === custNum);
+    if (cust?.salesRep?.employeeNumber) {
+      setSelectedRepId(String(cust.salesRep.employeeNumber));
+    }
+  }, [selectedCustomerNumber, customers]);
 
   function setItem(index, patch) {
     setItems(prev => prev.map((it, i) => i === index ? { ...it, ...patch } : it));
@@ -52,38 +77,87 @@ export default function NewOrderPage() {
 
   const subtotal = computedItems.reduce((sum, it) => sum + (Number(it.price) * Number(it.quantity || 0)), 0);
 
+  function normalizeReportsTo(value) {
+    if (!value && value !== 0) return null;
+    if (typeof value === 'object' && value !== null) {
+      if ('employeeNumber' in value) return value;
+      if ('id' in value && typeof value.id === 'number') return { employeeNumber: Number(value.id) };
+      return null;
+    }
+    const num = Number(value);
+    return Number.isFinite(num) && num > 0 ? { employeeNumber: num } : null;
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
+    // Optional: enforce at least one item chosen if you want items to be relevant
     if (computedItems.length === 0 || computedItems.some(it => !it.productCode)) {
       setStatus(s => ({ ...s, error: 'Please select at least one product.' }));
       return;
     }
-    setStatus(s => ({ ...s, saving: true, error: null }));
+
+    // Validate customer selection
+    const custNum = Number(selectedCustomerNumber);
+    const selectedCustomer = customers.find(c => Number(c.customerNumber ?? c.id) === custNum);
+    if (!selectedCustomer) {
+      setStatus(s => ({ ...s, error: 'Please select a customer.' }));
+      return;
+    }
+
+    // Validate/prepare Sales Rep
+    const repIdNum = Number(selectedRepId);
+    const fallbackRep = selectedCustomer?.salesRep;
+    const selectedRep = employees.find(e => Number(e.employeeNumber) === repIdNum) || fallbackRep;
+    if (!selectedRep) {
+      setStatus(s => ({ ...s, error: 'Please select a sales rep.' }));
+      return;
+    }
+
+    setStatus(s => ({ ...s, saving: true, error: null, success: null, orderNumber: null }));
     try {
-      let customerId = selectedCustomerId;
-      let customerObj = null;
-      if (!useExistingCustomer) {
-        // create a customer first (minimal fields)
-        const created = await createCustomer(customerForm);
-        customerId = created?.id;
-        customerObj = created;
-      }
+      const today = new Date().toISOString().slice(0, 10);
+      const newOrderNumber = Math.max(1, Math.floor(Date.now() % 2147483647));
+
+      const repOffice = (selectedRep.office) || {};
+      const customerPayload = JSON.parse(JSON.stringify(selectedCustomer));
+      customerPayload.salesRep = {
+        employeeNumber: selectedRep.employeeNumber || 0,
+        lastName: selectedRep.lastName || '',
+        firstName: selectedRep.firstName || '',
+        extension: selectedRep.extension || '',
+        email: selectedRep.email || '',
+        office: {
+          officeCode: repOffice.officeCode || '',
+          city: repOffice.city || '',
+          phone: repOffice.phone || '',
+          addressLine1: repOffice.addressLine1 || '',
+          addressLine2: repOffice.addressLine2 ?? '',
+          state: repOffice.state ?? '',
+          country: repOffice.country || '',
+          postalCode: repOffice.postalCode || '',
+          territory: repOffice.territory || ''
+        },
+        reportsTo: normalizeReportsTo(selectedRep.reportsTo),
+        jobTitle: selectedRep.jobTitle || ''
+      };
 
       const orderPayload = {
-        customerId,
-        customer: customerObj || undefined,
-        items: computedItems.map(it => ({ productCode: it.productCode, quantity: Number(it.quantity), price: it.price })),
-        subtotal,
-        source: 'admin',
+        orderNumber: newOrderNumber,
+        orderDate: today,
+        requiredDate: today,
+        shippedDate: today,
+        status: 'Submitted',
+        comments: '',
+        customer: customerPayload
       };
-      const res = await createOrder(orderPayload);
-      const orderNumber = res?.orderNumber || res?.id || res?.orderNo;
-      router.push('/admin/orders');
-      router.refresh?.();
-      // Optionally redirect to the newly created order confirmation page:
-      // if (orderNumber) router.push(`/order-confirmation/${encodeURIComponent(orderNumber)}`);
+
+      const created = await createOrder(orderPayload);
+      const orderNumber = created?.orderNumber || created?.id || created?.orderNo || orderPayload.orderNumber;
+
+      setStatus(s => ({ ...s, saving: false, success: 'Order created successfully.', error: null, orderNumber }));
+      // Do not redirect per requirement
     } catch (e) {
-      setStatus(s => ({ ...s, saving: false, error: e?.message || 'Failed to create order' }));
+      setStatus(s => ({ ...s, saving: false, error: e?.message || 'Failed to create order', success: null }));
     }
   }
 
@@ -93,31 +167,46 @@ export default function NewOrderPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">New Order</h1>
       {status.error && <div className="text-red-600 text-sm">{status.error}</div>}
+      {status.success && (
+        <div className="text-green-700 text-sm">{status.success} {status.orderNumber ? `#${status.orderNumber}` : ''}</div>
+      )}
       <form onSubmit={onSubmit} className="space-y-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="radio" name="custmode" checked={useExistingCustomer} onChange={() => setUseExistingCustomer(true)} /> Existing customer
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="radio" name="custmode" checked={!useExistingCustomer} onChange={() => setUseExistingCustomer(false)} /> New customer
-            </label>
-          </div>
-          {useExistingCustomer ? (
-            <select className="border rounded px-3 py-2 w-full" value={selectedCustomerId} onChange={e => setSelectedCustomerId(e.target.value)} required>
-              <option value="">Select a customer…</option>
-              {(customers || []).map(c => (
-                <option key={c.id} value={c.id}>{[c.firstName, c.lastName].filter(Boolean).join(' ') || c.name || c.email || c.id}</option>
-              ))}
-            </select>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input className="border rounded px-3 py-2" placeholder="First name" value={customerForm.firstName} onChange={e => setCustomerForm(prev => ({ ...prev, firstName: e.target.value }))} required />
-              <input className="border rounded px-3 py-2" placeholder="Last name" value={customerForm.lastName} onChange={e => setCustomerForm(prev => ({ ...prev, lastName: e.target.value }))} required />
-              <input type="email" className="border rounded px-3 py-2" placeholder="Email" value={customerForm.email} onChange={e => setCustomerForm(prev => ({ ...prev, email: e.target.value }))} />
-              <input className="border rounded px-3 py-2" placeholder="Phone" value={customerForm.phone} onChange={e => setCustomerForm(prev => ({ ...prev, phone: e.target.value }))} />
-            </div>
-          )}
+          <label className="block text-sm font-medium mb-1">Customer</label>
+          <select
+            className="border rounded px-3 py-2 w-full"
+            value={selectedCustomerNumber}
+            onChange={e => setSelectedCustomerNumber(e.target.value)}
+            required
+            disabled={customersLoading}
+          >
+            <option value="" disabled>{customersLoading ? 'Loading customers...' : 'Select a customer'}</option>
+            {!customersLoading && (customers || []).map(c => (
+              <option key={c.customerNumber ?? c.id} value={c.customerNumber ?? c.id}>
+                {(c.customerName || [c.contactFirstName, c.contactLastName].filter(Boolean).join(' ') || 'Customer')} {(c.customerNumber ?? c.id) ? `(#${c.customerNumber ?? c.id})` : ''}
+              </option>
+            ))}
+          </select>
+          {customersError && <div className="text-yellow-700 text-xs mt-1">{customersError}</div>}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Sales Rep</label>
+          <select
+            className="border rounded px-3 py-2 w-full"
+            value={selectedRepId}
+            onChange={e => setSelectedRepId(e.target.value)}
+            required
+            disabled={employeesLoading}
+          >
+            <option value="" disabled>{employeesLoading ? 'Loading sales reps...' : 'Select a sales rep'}</option>
+            {!employeesLoading && (employees || []).map(emp => (
+              <option key={emp.employeeNumber} value={emp.employeeNumber}>
+                {(emp.firstName || '') + ' ' + (emp.lastName || '')} {emp.jobTitle ? `- ${emp.jobTitle}` : ''}
+              </option>
+            ))}
+          </select>
+          {employeesError && <div className="text-yellow-700 text-xs mt-1">{employeesError}</div>}
         </div>
 
         <div className="space-y-3">

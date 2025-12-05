@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { getCart, clearCart } from '@/lib/cart';
 //import { updateProduct, createOrder } from '@/lib/api';
-import { createOrder, getEmployees, getCustomers } from '@/lib/api';
+import { createOrder, getCustomers } from '@/lib/api';
+import { loadEmployees } from '@/lib/employees';
 import { useRouter } from 'next/navigation';
 
 
@@ -37,12 +38,11 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    async function loadEmployees() {
+    async function loadSalesReps() {
       setEmployeesLoading(true);
       setEmployeesError(null);
       try {
-        const list = await getEmployees();
-        // Expect array of employees with employeeNumber, firstName, lastName
+        const list = await loadEmployees();
         setEmployees(Array.isArray(list) ? list : []);
       } catch (e) {
         setEmployeesError('Failed to load sales reps');
@@ -63,7 +63,7 @@ export default function CheckoutPage() {
         setCustomersLoading(false);
       }
     }
-    loadEmployees();
+    loadSalesReps();
     loadCustomers();
   }, []);
 
