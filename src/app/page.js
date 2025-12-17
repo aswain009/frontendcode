@@ -1,8 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import dynamic from "next/dynamic";
-
-const TestimonialsCarousel = dynamic(() => import("@/components/TestimonialsCarousel"), { ssr: false });
+import TestimonialsCarousel from "@/components/TestimonialsCarousel";
 
 export default function Home() {
   return (
