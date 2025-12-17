@@ -60,7 +60,6 @@ export default function Home() {
       <section className="mt-10">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl sm:text-2xl font-semibold text-[color:var(--brand-teal)]">What our customers say</h2>
-          <Link href="/admin/testimonials" className="text-sm underline text-[color:var(--brand-orange)]/80 hover:text-[color:var(--brand-orange)]">Manage</Link>
         </div>
         <TestimonialsCarousel />
       </section>
