@@ -95,6 +95,12 @@ export default async function AdminPage() {
                 >
                     Customers
                 </Link>
+                <Link
+                    href="/admin/testimonials"
+                    className="rounded-md border border-gray-200 p-4 hover:bg-gray-50"
+                >
+                    Testimonials
+                </Link>
             </div>
         </div>
     );

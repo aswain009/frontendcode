@@ -123,4 +123,29 @@ export function getEmployees() {
   });
 }
 
+// Testimonials
+export function getTestimonials() {
+  return safeFetch('/testimonials').then(list => Array.isArray(list) ? list : []);
+}
+export function getTestimonial(id) {
+  return safeFetch(`/testimonials/${encodeURIComponent(id)}`);
+}
+export async function createTestimonial(testimonial) {
+  // Build the required payload shape. ID will be assigned by the database; no pre-fetch needed.
+  const payload = {
+    title: testimonial?.title ?? testimonial?.name ?? 'Testimonial',
+    createdAt: new Date().toISOString(),
+    body: testimonial?.body ?? testimonial?.content ?? testimonial?.message ?? testimonial?.text ?? '',
+    createdBy: testimonial?.createdBy ?? testimonial?.author ?? testimonial?.customerName ?? 'Anonymous',
+  };
+
+  return safeFetch('/testimonials', { method: 'POST', body: payload });
+}
+export function updateTestimonial(id, testimonial) {
+  return safeFetch(`/testimonials/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(testimonial) });
+}
+export function deleteTestimonial(id) {
+  return safeFetch(`/testimonials/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export { API_BASE };

@@ -1,5 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+
+const TestimonialsCarousel = dynamic(() => import("@/components/TestimonialsCarousel"), { ssr: false });
 
 export default function Home() {
   return (
@@ -53,6 +56,15 @@ export default function Home() {
           <div className="font-semibold text-[color:var(--brand-gold)]">Great Support</div>
           <p className="text-sm mt-1 text-black/70">We’re here to help you find the right part.</p>
         </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="mt-10">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl sm:text-2xl font-semibold text-[color:var(--brand-teal)]">What our customers say</h2>
+          <Link href="/admin/testimonials" className="text-sm underline text-[color:var(--brand-orange)]/80 hover:text-[color:var(--brand-orange)]">Manage</Link>
+        </div>
+        <TestimonialsCarousel />
       </section>
 
       <footer className="mt-10 text-center text-sm text-black/60">
