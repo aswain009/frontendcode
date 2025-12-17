@@ -31,10 +31,10 @@ export default async function AdminTestimonialsPage() {
         </thead>
         <tbody>
           {(testimonials || []).map((t, idx) => {
-            const id = t.id ?? t.testimonialId ?? idx;
-            const author = t.author || t.created_by || t.createdBy || 'Anonymous';
-            const rating = t.rating ?? t.stars ?? '';
-            const text = t.body || t.message || t.text || '';
+            const id = t.id;
+            const author = t.created_by || t.createdBy || 'Anonymous';
+            const rating = t.rating ?? '';
+            const text = t.body || '';
             return (
               <tr key={id} className="border-t">
                 <td className="p-2 font-mono">{id}</td>
